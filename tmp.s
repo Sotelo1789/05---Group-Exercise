@@ -1,8 +1,8 @@
-	.file	"multiplyByX.cpp"
+	.file	"multiplyBy1.cpp"
 	.text
-	.globl	_Z11multiplyByXP8IntArrayi
-	.type	_Z11multiplyByXP8IntArrayi, @function
-_Z11multiplyByXP8IntArrayi:
+	.globl	_Z11multiplyBy1P8IntArray
+	.type	_Z11multiplyBy1P8IntArray, @function
+_Z11multiplyBy1P8IntArray:
 .LFB0:
 	.cfi_startproc
 	endbr64
@@ -12,8 +12,7 @@ _Z11multiplyByXP8IntArrayi:
 .L3:
 	movq	8(%rdi), %rdx
 	leaq	(%rdx,%rax,4), %rdx
-	movl	%esi, %ecx
-	imull	(%rdx), %ecx
+	movl	(%rdx), %ecx
 	movl	%ecx, (%rdx)
 	addq	$1, %rax
 	cmpl	%eax, (%rdi)
@@ -22,8 +21,7 @@ _Z11multiplyByXP8IntArrayi:
 	ret
 	.cfi_endproc
 .LFE0:
-	.size	_Z11multiplyByXP8IntArrayi, .-_Z11multiplyByXP8IntArrayi
-	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0"
+	.size	_Z11multiplyBy1P8IntArray, .-_Z11multiplyBy1P8IntArray
 	.section	.note.GNU-stack,"",@progbits
 	.section	.note.gnu.property,"a"
 	.align 8
