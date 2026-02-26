@@ -31,12 +31,17 @@
 
 std::vector<int> getBits(int n) {
     std::vector<int> bits; // Creates an empty list called bits.
+    // Loop from 0 to 31. We loop 32 times because a regular int is 32 bits wide. 
+    // We're going to check every single bit position one at a time, from the least
+    // significant (bit 0, worth 1) to the most significant (bit 31, worth 2,147,483,648).
+
     for (int i = 0; i < 32; i++) {
         if (n & (1 << i)) {
             bits.push_back(i);
         }
     }
     return bits;
+    //  for 61 (00111101) the function returns {0, 2, 3, 4, 5}
 }
 
 // Emit the C++ name-mangled symbol for multiplyBy<n>(IntArray*)
