@@ -47,27 +47,45 @@ int main(int argc, char *argv[]) {
         std::cerr << "Usage: " << argv[0] << " <positive_integer>" << std::endl;
         return 1;
     }
+    //If the user didn't provide exactly one argument (making argc exactly 2), print an 
+    //error message to cerr (the error output stream) and exit with return code 1. 
+    //Return code 1 tells the operating system something went wrong. Return code 0 
+    //means success.
 
     int constant = std::atoi(argv[1]);
+    // argv[1] is the string "61". atoi (ASCII to integer) converts it to the actual 
+    // integer 61. If the user typed letters instead of a number, atoi returns 0.
+
     if (constant <= 0) {
         std::cerr << "Error: constant must be a positive integer." << std::endl;
         return 1;
     }
+    // Reject 0 (which also catches the case where atoi failed because of non-numeric input) 
+    // and any negative numbers. Our shift-and-add algorithm only works for positive integers.
+
 
     std::string funcName = "multiplyBy" + std::to_string(constant);
     std::string sym = mangledName(constant);
     std::vector<int> bits = getBits(constant);
+    // Three setup lines before we start printing assembly:
+    // funcName — the human readable name like "multiplyBy61". Used in the .file directive.
+    //
+    // sym — the mangled symbol name like "_Z12multiplyBy61P8IntArray". Used everywhere the 
+    // symbol appears in the assembly.
+    //
+    // bits — the list of set bit positions from getBits. For 61 this 
+    // is {0, 2, 3, 4, 5}. This drives the entire multiplication logic below.
 
     // ---------------------------------------------------------------
     // Emit assembly header
     // ---------------------------------------------------------------
-    std::cout << "\t.file\t\"" << funcName << ".cpp\"\n";
-    std::cout << "\t.text\n";
-    std::cout << "\t.globl\t" << sym << "\n";
-    std::cout << "\t.type\t" << sym << ", @function\n";
-    std::cout << sym << ":\n";
-    std::cout << ".LFB0:\n";
-    std::cout << "\t.cfi_startproc\n";
+    std::cout << "\t.file\t\"" << funcName << ".cpp\"\n"; // Prints the .file directive
+    std::cout << "\t.text\n";                             // Prints the .text directive
+    std::cout << "\t.globl\t" << sym << "\n";             // Prints the .globl directive
+    std::cout << "\t.type\t" << sym << ", @function\n";   // Prints the .type directive
+    std::cout << sym << ":\n";                            // Prints the function label 
+    std::cout << ".LFB0:\n";                              // Prints the three opening 
+    std::cout << "\t.cfi_startproc\n";                    // lines of the function body
     std::cout << "\tendbr64\n";
 
     // ---------------------------------------------------------------
@@ -84,9 +102,13 @@ int main(int argc, char *argv[]) {
     //   %rdx = pointer to current element: elements + i*4
     //   %ecx = current element value (loaded from *%rdx)
     //   %r8d = accumulator for the shifted sum
+    //
+    //
     // ---------------------------------------------------------------
 
     // Check if size <= 0, skip loop entirely
+    // Prints the size check and loop counter initialization
+    // they check if the array is empty and set up %eax as the loop counter.
     std::cout << "\tcmpl\t$0, (%rdi)\n";
     std::cout << "\tjle\t.L1\n";
     std::cout << "\tmovl\t$0, %eax\n";       // i = 0
@@ -94,6 +116,12 @@ int main(int argc, char *argv[]) {
     // ---------------------------------------------------------------
     // Loop body
     // ---------------------------------------------------------------
+    
+    // Prints the top of the loop
+    // Loads the elements pointer, calculates the address of elements[i], and loads 
+    // the current element value into %ecx. After this point %ecx holds the value 
+    // we need to multiply.
+
     std::cout << ".L3:\n";
     // %rdx = &p->elements[i]  (elements ptr + i*4)
     std::cout << "\tmovq\t8(%rdi), %rdx\n";
@@ -113,37 +141,73 @@ int main(int argc, char *argv[]) {
     // we just shift and store directly.
     // ---------------------------------------------------------------
 
+    // This is the only part of the generator that varies based on the constant. 
+    // Everything before this was fixed boilerplate.
+
+
+    // Check if only ONE bit is set in the constant. If so, the constant is a 
+    // power of 2 and we can handle it with a single shift
+
     if (bits.size() == 1) {
         // Power of 2 — single shift suffices
-        int shift = bits[0];
+        int shift = bits[0]; // Get the position of that single set bit.
         if (shift == 0) {
             // multiply by 1: no-op, value stays in %ecx
         } else {
+            // generate a single left shift instruction. 
+            // sall = Shift Arithmetic Left Long. $ before the number means
+            // it's a literal value. So for constant 8 (shift = 3) this prints:
+            // sall	$3, %ecx
             std::cout << "\tsall\t$" << shift << ", %ecx\n";
         }
-        std::cout << "\tmovl\t%ecx, (%rdx)\n";
+        // Store the result from %ecx back into elements[i] in memory.
+        std::cout << "\tmovl\t%ecx, (%rdx)\n"; 
     } else {
         // General case: sum of shifted copies
         // We'll use %r8d as the running sum, %ecx as the base value.
         // For the first set bit, initialize %r8d.
+
+        //first is a flag to handle the first set bit differently from all subsequent ones. 
+        // For the first bit we initialize the accumulator %r8d. For all following bits we 
+        // add to it. We need this distinction because you can't add to %r8d before it has 
+        // an initial value.
+
         bool first = true;
-        for (int bit : bits) {
+        for (int bit : bits) { // Loop through each set bit position in our list. For 61 its {0, 2, 3, 4, 5}.
             if (first) {
-                first = false;
+                first = false; // First time through — set the flag to false so subsequent iterations take the else branch.
                 if (bit == 0) {
                     // partial = ecx << 0 = ecx; r8d = ecx
+                    // If the first set bit is bit 0, initialize the accumulator
+                    // with the unshifted value. No shift needed because 2⁰ = 1 
+                    // and shifting left by 0 changes nothing. For 61, bit 0 IS
+                    //  the first bit so this prints: 	movl	%ecx, %r8d
                     std::cout << "\tmovl\t%ecx, %r8d\n";
                 } else {
                     // r8d = ecx << bit
+                    // If the first set bit is NOT bit 0, initialize the accumulator with a 
+                    // shifted copy. Copy %ecx to %r8d then shift it left by bit positions.
+
                     std::cout << "\tmovl\t%ecx, %r8d\n";
                     std::cout << "\tsall\t$" << bit << ", %r8d\n";
                 }
             } else {
+                // All subsequent iterations — we already have a value in %r8d, 
+                // now we add more shifted copies to it.
+
                 // partial = ecx << bit, then r8d += partial
                 // Use a temp register %r9d for the shifted value
                 if (bit == 0) {
+                    // If this set bit is bit 0, just add the unshifted original value 
+                    // directly to the accumulator. No separate temp register needed 
+                    // since no shift is required. Prints: 	addl	%ecx, %r8d
+
                     std::cout << "\taddl\t%ecx, %r8d\n";
                 } else {
+                    // For any other set bit, copy the original value to the temp register 
+                    // %r9d, shift it left by bit positions (multiplying by 2^bit), 
+                    // then add the result to the accumulator %r8d.
+                    
                     std::cout << "\tmovl\t%ecx, %r9d\n";
                     std::cout << "\tsall\t$" << bit << ", %r9d\n";
                     std::cout << "\taddl\t%r9d, %r8d\n";
@@ -191,3 +255,19 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+ // # Step 1: Build and test Part A
+ // g++ -O -S multiplyByX.cpp -o multiplyByX.s
+ // g++ multiplyByXTester.cpp multiplyByX.s -o multiplyByXTester.out
+ // ./multiplyByXTester.out
+ 
+ // # Step 2: Build generator
+ // g++ multiplyByXGenerator.cpp -o multiplyByXGenerator.out
+ 
+ // # Step 3: Generate and test multiplyBy61
+ // ./multiplyByXGenerator.out 61 > multiplyBy61.s
+ // g++ multiplyBy61Tester.cpp multiplyBy61.s -o multiplyBy61Tester.out
+ // ./multiplyBy61Tester.out
+ 
+ // # Step 4: Confirm no imul
+ // grep 'imul' multiplyBy61.s && echo 'FAIL: imul found' || echo 'PASS: no imul'
