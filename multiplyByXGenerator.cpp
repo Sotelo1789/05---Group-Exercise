@@ -24,8 +24,13 @@
 
 // Return the set bits (positions) of n, from lowest to highest.
 // These correspond to the shifts needed: n = sum of (1 << bit) for each set bit.
+
+// This defines a function called getBits that takes one integer n and returns a 
+// vector<int> — a list of integers. The list will contain the positions of every 
+// bit that is set to 1 in the binary representation of n.
+
 std::vector<int> getBits(int n) {
-    std::vector<int> bits;
+    std::vector<int> bits; // Creates an empty list called bits.
     for (int i = 0; i < 32; i++) {
         if (n & (1 << i)) {
             bits.push_back(i);
@@ -207,7 +212,7 @@ int main(int argc, char *argv[]) {
                     // For any other set bit, copy the original value to the temp register 
                     // %r9d, shift it left by bit positions (multiplying by 2^bit), 
                     // then add the result to the accumulator %r8d.
-                    
+
                     std::cout << "\tmovl\t%ecx, %r9d\n";
                     std::cout << "\tsall\t$" << bit << ", %r9d\n";
                     std::cout << "\taddl\t%r9d, %r8d\n";
@@ -215,12 +220,16 @@ int main(int argc, char *argv[]) {
             }
         }
         // Store result
+        // After all bits are processed, %r8d holds the final product. 
+        // Store it back into elements[i] in memory, overwriting the original value.
+
         std::cout << "\tmovl\t%r8d, (%rdx)\n";
     }
 
     // ---------------------------------------------------------------
     // Loop increment and condition check
     // ---------------------------------------------------------------
+    // Prints the three loop control lines 
     std::cout << "\taddq\t$1, %rax\n";       // i++
     std::cout << "\tcmpl\t%eax, (%rdi)\n";   // if (size > i) loop
     std::cout << "\tjg\t.L3\n";
